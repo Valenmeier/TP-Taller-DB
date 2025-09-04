@@ -12,18 +12,28 @@ public class CorsFilter extends Filter {
     public void doFilter(HttpExchange ex, Chain chain) throws IOException {
         String allowed = System.getenv().getOrDefault("CORS_ORIGIN", "*");
         String origin = ex.getRequestHeaders().getFirst("Origin");
+        String acrHeaders = ex.getRequestHeaders().getFirst("Access-Control-Request-Headers");
 
         Headers rh = ex.getResponseHeaders();
+
+
         if ("*".equals(allowed) || allowed.equals(origin)) {
             rh.set("Access-Control-Allow-Origin", origin != null ? origin : allowed);
+            rh.set("Vary", "Origin");
         }
-        rh.set("Vary", "Origin");
-        rh.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
+
+
+        if (acrHeaders != null && !acrHeaders.isBlank()) {
+            rh.set("Access-Control-Allow-Headers", acrHeaders);
+        } else {
+            rh.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
+        }
+
         rh.set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
         rh.set("Access-Control-Allow-Credentials", "true");
         rh.set("Access-Control-Max-Age", "86400");
 
-        // --- Preflight ---
+        // Preflight
         if ("OPTIONS".equalsIgnoreCase(ex.getRequestMethod())) {
             ex.sendResponseHeaders(204, -1);
             ex.close();
@@ -34,7 +44,5 @@ public class CorsFilter extends Filter {
     }
 
     @Override
-    public String description() {
-        return "CORS preflight + headers";
-    }
+    public String description() { return "CORS preflight + headers"; }
 }

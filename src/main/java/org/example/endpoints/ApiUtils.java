@@ -17,25 +17,8 @@ public class ApiUtils {
             .create();
 
     public static void sendJson(HttpExchange ex, int status, String json) throws IOException {
-        //CORS
-        String allowed = System.getenv().getOrDefault("CORS_ORIGIN", "*");
-        String origin = ex.getRequestHeaders().getFirst("Origin");
-        if (allowed.equals("*") || (allowed.equals(origin))) {
-            ex.getResponseHeaders().add("Access-Control-Allow-Origin", origin != null ? origin : allowed);
-        }
-        ex.getResponseHeaders().add("Access-Control-Allow-Headers", "Authorization, Content-Type");
-        ex.getResponseHeaders().add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-
-        // --- Preflight OPTIONS ---
-        if ("OPTIONS".equalsIgnoreCase(ex.getRequestMethod())) {
-            ex.sendResponseHeaders(204, -1);
-            ex.close();
-            return;
-        }
-
-        // --- JSON response ---
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-        ex.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
+        ex.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
         ex.sendResponseHeaders(status, bytes.length);
         try (OutputStream os = ex.getResponseBody()) {
             os.write(bytes);
