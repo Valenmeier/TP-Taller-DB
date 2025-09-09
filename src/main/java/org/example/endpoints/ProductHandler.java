@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.List;
+import java.util.Locale;
 
 public class ProductHandler implements HttpHandler {
     private final Gson gson = ApiUtils.GSON;
@@ -28,7 +29,7 @@ public class ProductHandler implements HttpHandler {
 
             if ("GET".equalsIgnoreCase(method)) {
                 Auth.requireRole(jwt, "ENCARGADO","ADMIN");
-                if (id == null) handleListBySeccion(ex); else handleGetOne(ex, id);
+                if (id == null) handleList(ex); else handleGetOne(ex, id);
                 return;
             }
 
@@ -36,10 +37,20 @@ public class ProductHandler implements HttpHandler {
 
             switch (method) {
                 case "POST" -> handleCreate(ex);
-                case "PUT"  -> { if (id==null){ApiUtils.sendJson(ex,400,"{\"error\":\"Falta id\"}");}
-                else handleUpdate(ex, id); }
-                case "DELETE" -> { if (id==null){ApiUtils.sendJson(ex,400,"{\"error\":\"Falta id\"}");}
-                else handleDelete(ex, id); }
+                case "PUT"  -> {
+                    if (id == null) {
+                        ApiUtils.sendJson(ex, 400, "{\"error\":\"Falta id\"}");
+                    } else {
+                        handleUpdate(ex, id);
+                    }
+                }
+                case "DELETE" -> {
+                    if (id == null) {
+                        ApiUtils.sendJson(ex, 400, "{\"error\":\"Falta id\"}");
+                    } else {
+                        handleDelete(ex, id);
+                    }
+                }
                 default -> ApiUtils.sendJson(ex, 405, "{\"error\":\"Método no permitido\"}");
             }
         } catch (IllegalAccessException e) {
@@ -50,28 +61,31 @@ public class ProductHandler implements HttpHandler {
         }
     }
 
-
-    private void handleListBySeccion(HttpExchange ex) throws Exception {
-        String seccion = ApiUtils.queryParam(ex.getRequestURI().getQuery(), "seccion");
-        if (seccion == null || seccion.isBlank()) {
-            ApiUtils.sendJson(ex, 400, "{\"error\":\"Parametro 'seccion' requerido\"}");
-            return;
-        }
-        List<Producto> lista = dao.findAll(seccion);   // ya tenés este método
+    // GET
+    private void handleList(HttpExchange ex) throws Exception {
+        String seccionRaw = ApiUtils.queryParam(ex.getRequestURI().getQuery(), "seccion");
+        String seccion = normSeccion(seccionRaw);
+        List<Producto> lista = dao.findAll(seccion);
         ApiUtils.sendJson(ex, 200, gson.toJson(lista));
     }
 
     // GET /productos/{id}
     private void handleGetOne(HttpExchange ex, int id) throws Exception {
         Producto p = dao.findById(id);
-        if (p == null) { ApiUtils.sendJson(ex, 404, "{\"error\":\"No encontrado\"}"); return; }
+        if (p == null) {
+            ApiUtils.sendJson(ex, 404, "{\"error\":\"No encontrado\"}");
+            return;
+        }
         ApiUtils.sendJson(ex, 200, gson.toJson(p));
     }
 
-    // POST /productos  Body: { "nombre":"Aguja","seccion":"CARNES","precioKg":1500.00 }
+    // POST /productos
     private void handleCreate(HttpExchange ex) throws Exception {
         String body = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         Producto dto = gson.fromJson(body, Producto.class);
+
+        if (dto != null) dto.setSeccion(normSeccion(dto.getSeccion()));
+
         if (!validNuevo(dto)) {
             ApiUtils.sendJson(ex, 400, "{\"error\":\"nombre, seccion y precioKg son requeridos\"}");
             return;
@@ -87,13 +101,16 @@ public class ProductHandler implements HttpHandler {
     // PUT /productos/{id}  Body parcial o completo
     private void handleUpdate(HttpExchange ex, int id) throws Exception {
         Producto existente = dao.findById(id);
-        if (existente == null) { ApiUtils.sendJson(ex, 404, "{\"error\":\"No encontrado\"}"); return; }
+        if (existente == null) {
+            ApiUtils.sendJson(ex, 404, "{\"error\":\"No encontrado\"}");
+            return;
+        }
 
         String body = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         Producto dto = gson.fromJson(body, Producto.class);
 
         if (dto.getNombre()!=null && !dto.getNombre().isBlank()) existente.setNombre(dto.getNombre());
-        if (dto.getSeccion()!=null && !dto.getSeccion().isBlank()) existente.setSeccion(dto.getSeccion());
+        if (dto.getSeccion()!=null && !dto.getSeccion().isBlank()) existente.setSeccion(normSeccion(dto.getSeccion()));
         if (dto.getPrecioKg()!=null && dto.getPrecioKg().compareTo(BigDecimal.ZERO)>0) existente.setPrecioKg(dto.getPrecioKg());
 
         try {
@@ -120,6 +137,13 @@ public class ProductHandler implements HttpHandler {
         }
         return null;
     }
+
+    private static String normSeccion(String s) {
+        if (s == null) return null;
+        String trimmed = s.trim();
+        return trimmed.isEmpty() ? "" : trimmed.toUpperCase(Locale.ROOT);
+    }
+
     private boolean validNuevo(Producto p) {
         return p!=null
                 && p.getNombre()!=null && !p.getNombre().isBlank()

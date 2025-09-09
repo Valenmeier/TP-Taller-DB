@@ -18,7 +18,7 @@ public class ProductoDAO {
         try (Connection c = Db.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, p.getNombre());
-            ps.setString(2, p.getSeccion());
+            ps.setString(2, p.getSeccion());      // ya viene normalizada desde el handler
             ps.setBigDecimal(3, p.getPrecioKg());
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -40,11 +40,12 @@ public class ProductoDAO {
         }
     }
 
-    // READ (todos, opcional filtro por seccion)
+    // READ
     public List<Producto> findAll(String seccion) throws Exception {
         String base = "SELECT id, nombre, seccion, precio_kg FROM productos";
         boolean filtrar = seccion != null && !seccion.isBlank();
-        String sql = filtrar ? base + " WHERE seccion = ? ORDER BY nombre"
+        String sql = filtrar
+                ? base + " WHERE UPPER(seccion) = UPPER(?) ORDER BY nombre"
                 : base + " ORDER BY seccion, nombre";
         try (Connection c = Db.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             if (filtrar) ps.setString(1, seccion);
@@ -61,7 +62,7 @@ public class ProductoDAO {
         String sql = "UPDATE productos SET nombre=?, seccion=?, precio_kg=? WHERE id=?";
         try (Connection c = Db.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, p.getNombre());
-            ps.setString(2, p.getSeccion());
+            ps.setString(2, p.getSeccion());      // ya viene normalizada desde el handler
             ps.setBigDecimal(3, p.getPrecioKg());
             ps.setInt(4, p.getId());
             return ps.executeUpdate() == 1;
