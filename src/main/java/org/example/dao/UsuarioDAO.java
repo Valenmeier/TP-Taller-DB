@@ -59,8 +59,11 @@ public class UsuarioDAO {
             ps.setString(2, u.getRol());
             ps.setInt(3, u.getId());
             return ps.executeUpdate() == 1;
+        } catch (java.sql.SQLIntegrityConstraintViolationException dup) {
+            throw new IllegalArgumentException("El usuario ya existe");
         }
     }
+
 
     public boolean updatePassword(int userId, String nuevaPlano) throws Exception {
         String sql = "UPDATE usuarios SET contrasena=? WHERE id=?";
