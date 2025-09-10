@@ -83,7 +83,6 @@ public class ProductHandler implements HttpHandler {
     private void handleCreate(HttpExchange ex) throws Exception {
         String body = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         Producto dto = gson.fromJson(body, Producto.class);
-
         if (dto != null) dto.setSeccion(normSeccion(dto.getSeccion()));
 
         if (!validNuevo(dto)) {
@@ -91,8 +90,9 @@ public class ProductHandler implements HttpHandler {
             return;
         }
         try {
-            var creado = dao.create(new Producto(null, dto.getNombre(), dto.getSeccion(), dto.getPrecioKg()));
-            ApiUtils.sendJson(ex, 201, gson.toJson(creado));
+            var res = dao.createOrReactivate(new Producto(null, dto.getNombre(), dto.getSeccion(), dto.getPrecioKg()));
+            // 200 si reactivó, 201 si insertó; si querés distinguir, devolvé un flag desde el DAO
+            ApiUtils.sendJson(ex, 200, gson.toJson(res));
         } catch (SQLIntegrityConstraintViolationException dup) {
             ApiUtils.sendJson(ex, 409, "{\"error\":\"Producto duplicado (nombre+seccion)\"}");
         }
@@ -129,7 +129,7 @@ public class ProductHandler implements HttpHandler {
             ApiUtils.sendJson(ex, 409, "{\"error\":\"No se puede desactivar: hay procesos en PROCESANDO\"}");
             return;
         }
-        boolean ok = dao.delete(id);
+        boolean ok = dao.deleteConsolidando(id);
         if (ok) ApiUtils.sendJson(ex, 200, "{\"ok\":true, \"accion\":\"desactivado\"}");
         else    ApiUtils.sendJson(ex, 404, "{\"error\":\"No encontrado o ya estaba desactivado\"}");
     }
