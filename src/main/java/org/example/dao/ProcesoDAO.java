@@ -1,6 +1,7 @@
 package org.example.dao;
 
 import org.example.Db;
+import org.example.dto.TicketDTO;
 import org.example.model.Proceso;
 
 import java.sql.*;
@@ -92,5 +93,41 @@ public class ProcesoDAO {
                 rs.getBigDecimal("precio_unitario"),
                 rs.getBigDecimal("importe_total")
         );
+    }
+    public TicketDTO findTicketDTO(String nro) throws Exception {
+        String sql = """
+            SELECT prc.id,
+                   prc.nro_proceso,
+                   prc.estado,
+                   prc.fecha,
+                   prc.producto_id,
+                   prc.peso_kg,
+                   prc.precio_unitario,
+                   prc.importe_total,
+                   prod.nombre  AS producto_nombre,
+                   prod.seccion AS producto_seccion
+            FROM procesos prc
+            LEFT JOIN productos prod ON prod.id = prc.producto_id
+            WHERE prc.nro_proceso = ?
+            """;
+        try (Connection c = Db.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, nro);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                return new TicketDTO(
+                        rs.getInt("id"),
+                        rs.getString("nro_proceso"),
+                        rs.getString("estado"),
+                        rs.getString("fecha"),
+                        rs.getInt("producto_id"),
+                        rs.getBigDecimal("peso_kg"),
+                        rs.getBigDecimal("precio_unitario"),
+                        rs.getBigDecimal("importe_total"),
+                        rs.getString("producto_nombre"),
+                        rs.getString("producto_seccion")
+                );
+            }
+        }
     }
 }

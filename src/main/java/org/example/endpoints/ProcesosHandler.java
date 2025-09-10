@@ -6,6 +6,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.example.dao.ProductoDAO;
 import org.example.dao.ProcesoDAO;
+import org.example.dto.TicketDTO;
 import org.example.model.Producto;
 import org.example.model.Proceso;
 
@@ -83,10 +84,14 @@ public class ProcesosHandler implements HttpHandler {
 
     // GET /procesos/{nro}
     private void handleGetOne(HttpExchange ex, String nro) throws Exception {
-        Proceso p = procesoDAO.findByNro(nro);
-        if (p == null) { ApiUtils.sendJson(ex, 404, "{\"error\":\"No encontrado\"}"); return; }
-        ApiUtils.sendJson(ex, 200, gson.toJson(p));
+        TicketDTO dto = procesoDAO.findTicketDTO(nro);
+        if (dto == null) {
+            ApiUtils.sendJson(ex, 404, "{\"error\":\"No encontrado\"}");
+            return;
+        }
+        ApiUtils.sendJson(ex, 200, gson.toJson(dto));
     }
+
 
     // POST /procesos
     // Body esperado: { "nroProceso":"(opcional)", "fecha":"2025-09-01T18:30:00"(opcional),
