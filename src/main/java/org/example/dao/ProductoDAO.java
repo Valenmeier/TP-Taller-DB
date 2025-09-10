@@ -18,7 +18,7 @@ public class ProductoDAO {
         try (Connection c = Db.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, p.getNombre());
-            ps.setString(2, p.getSeccion());      // ya viene normalizada desde el handler
+            ps.setString(2, p.getSeccion());
             ps.setBigDecimal(3, p.getPrecioKg());
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -30,7 +30,7 @@ public class ProductoDAO {
 
     // READ individual
     public Producto findById(int id) throws Exception {
-        String sql = "SELECT id, nombre, seccion, precio_kg FROM productos WHERE id = ?";
+        String sql = "SELECT id, nombre, seccion, precio_kg FROM productos WHERE id = ? AND activo = 1";
         try (Connection c = Db.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -40,12 +40,12 @@ public class ProductoDAO {
         }
     }
 
-    // READ
+    // READ lista
     public List<Producto> findAll(String seccion) throws Exception {
-        String base = "SELECT id, nombre, seccion, precio_kg FROM productos";
+        String base = "SELECT id, nombre, seccion, precio_kg FROM productos WHERE activo = 1";
         boolean filtrar = seccion != null && !seccion.isBlank();
         String sql = filtrar
-                ? base + " WHERE UPPER(seccion) = UPPER(?) ORDER BY nombre"
+                ? base + " AND UPPER(seccion) = UPPER(?) ORDER BY nombre"
                 : base + " ORDER BY seccion, nombre";
         try (Connection c = Db.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             if (filtrar) ps.setString(1, seccion);
@@ -59,22 +59,42 @@ public class ProductoDAO {
 
     // UPDATE
     public boolean update(Producto p) throws Exception {
-        String sql = "UPDATE productos SET nombre=?, seccion=?, precio_kg=? WHERE id=?";
+        String sql = "UPDATE productos SET nombre=?, seccion=?, precio_kg=? WHERE id=? AND activo = 1";
         try (Connection c = Db.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, p.getNombre());
-            ps.setString(2, p.getSeccion());      // ya viene normalizada desde el handler
+            ps.setString(2, p.getSeccion());
             ps.setBigDecimal(3, p.getPrecioKg());
             ps.setInt(4, p.getId());
             return ps.executeUpdate() == 1;
         }
     }
 
-    // DELETE
+    // SOFT DELETE
     public boolean delete(int id) throws Exception {
-        String sql = "DELETE FROM productos WHERE id=?";
+        String sql = "UPDATE productos SET activo = 0 WHERE id = ? AND activo = 1";
         try (Connection c = Db.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             return ps.executeUpdate() == 1;
+        }
+    }
+
+    // Reactivar un producto desactivado
+    public boolean reactivate(int id) throws Exception {
+        String sql = "UPDATE productos SET activo = 1 WHERE id = ? AND activo = 0";
+        try (Connection c = Db.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            return ps.executeUpdate() == 1;
+        }
+    }
+
+    public int contarProcesosEnCurso(int productoId) throws Exception {
+        String sql = "SELECT COUNT(*) FROM procesos WHERE producto_id = ? AND estado = 'PROCESANDO'";
+        try (Connection c = Db.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, productoId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
         }
     }
 

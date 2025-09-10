@@ -98,7 +98,7 @@ public class ProductHandler implements HttpHandler {
         }
     }
 
-    // PUT /productos/{id}  Body parcial o completo
+    // PUT /productos/{id}
     private void handleUpdate(HttpExchange ex, int id) throws Exception {
         Producto existente = dao.findById(id);
         if (existente == null) {
@@ -124,11 +124,15 @@ public class ProductHandler implements HttpHandler {
 
     // DELETE /productos/{id}
     private void handleDelete(HttpExchange ex, int id) throws Exception {
+        int enCurso = dao.contarProcesosEnCurso(id);
+        if (enCurso > 0) {
+            ApiUtils.sendJson(ex, 409, "{\"error\":\"No se puede desactivar: hay procesos en PROCESANDO\"}");
+            return;
+        }
         boolean ok = dao.delete(id);
-        if (ok) ApiUtils.sendJson(ex, 200, "{\"ok\":true}");
-        else    ApiUtils.sendJson(ex, 404, "{\"error\":\"No encontrado\"}");
+        if (ok) ApiUtils.sendJson(ex, 200, "{\"ok\":true, \"accion\":\"desactivado\"}");
+        else    ApiUtils.sendJson(ex, 404, "{\"error\":\"No encontrado o ya estaba desactivado\"}");
     }
-
     // Helpers
     private Integer extractId(String path) {
         String[] parts = path.split("/");
