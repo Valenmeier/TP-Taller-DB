@@ -10,6 +10,10 @@ import java.time.ZoneId;
 import java.util.*;
 
 public class ProcesoDAO {
+    private static final java.time.ZoneId APP_ZONE =
+            java.time.ZoneId.of("America/Argentina/Buenos_Aires");
+    private static final java.util.Calendar UTC_CAL =
+            java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
 
     // CREATE
     public Proceso create(Proceso p) throws Exception {
@@ -21,7 +25,10 @@ public class ProcesoDAO {
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, p.getNroProceso());
             ps.setString(2, p.getEstado());
-            ps.setTimestamp(3, Timestamp.valueOf(p.getFecha()));
+            java.time.Instant utcInstant = p.getFecha()
+                    .atZone(APP_ZONE)
+                    .toInstant();
+            ps.setTimestamp(3, java.sql.Timestamp.from(utcInstant), UTC_CAL);
             ps.setInt(4, p.getProductoId());
             ps.setBigDecimal(5, p.getPesoKg());
             ps.setBigDecimal(6, p.getPrecioUnitario());
@@ -81,8 +88,11 @@ public class ProcesoDAO {
     }
 
     private Proceso map(ResultSet rs) throws Exception {
-        Timestamp ts = rs.getTimestamp("fecha");
-        LocalDateTime fecha = ts.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+        java.sql.Timestamp ts = rs.getTimestamp("fecha", UTC_CAL);
+        java.time.LocalDateTime fecha = ts.toInstant()
+                .atZone(APP_ZONE)
+                .toLocalDateTime();
+
         return new Proceso(
                 rs.getInt("id"),
                 rs.getString("nro_proceso"),
@@ -94,6 +104,11 @@ public class ProcesoDAO {
                 rs.getBigDecimal("importe_total")
         );
     }
+
+
+
+
+
     public TicketDTO findTicketDTO(String nro) throws Exception {
         String sql = """
             SELECT prc.id,
