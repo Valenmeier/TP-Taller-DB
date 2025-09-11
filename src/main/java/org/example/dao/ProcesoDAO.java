@@ -5,15 +5,16 @@ import org.example.dto.TicketDTO;
 import org.example.model.Proceso;
 
 import java.sql.*;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.*;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ProcesoDAO {
-    private static final java.time.ZoneId APP_ZONE =
-            java.time.ZoneId.of("America/Argentina/Buenos_Aires");
-    private static final java.util.Calendar UTC_CAL =
-            java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+
+    // Zona “humana” de la app (AR)
+    private static final ZoneId APP_ZONE = ZoneId.of("America/Argentina/Buenos_Aires");
+    private static final DateTimeFormatter ISO_OFFSET = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     // CREATE
     public Proceso create(Proceso p) throws Exception {
@@ -21,24 +22,41 @@ public class ProcesoDAO {
             INSERT INTO procesos (nro_proceso, estado, fecha, producto_id, peso_kg, precio_unitario, importe_total)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """;
+
+        // Si viene null, tomamos ahora en zona AR
+        LocalDateTime localFecha = (p.getFecha() != null) ? p.getFecha() : LocalDateTime.now(APP_ZONE);
+        // Guardamos en DB como UTC
+        Instant utcInstant = localFecha.atZone(APP_ZONE).toInstant();
+
+        Integer newId = null;
+
         try (Connection c = Db.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, p.getNroProceso());
             ps.setString(2, p.getEstado());
-            java.time.Instant utcInstant = p.getFecha()
-                    .atZone(APP_ZONE)
-                    .toInstant();
-            ps.setTimestamp(3, java.sql.Timestamp.from(utcInstant), UTC_CAL);
+            ps.setTimestamp(3, Timestamp.from(utcInstant)); // UTC en DB
             ps.setInt(4, p.getProductoId());
             ps.setBigDecimal(5, p.getPesoKg());
             ps.setBigDecimal(6, p.getPrecioUnitario());
             ps.setBigDecimal(7, p.getImporteTotal());
             ps.executeUpdate();
+
             try (ResultSet rs = ps.getGeneratedKeys()) {
-                if (rs.next()) p.setId(rs.getInt(1));
+                if (rs.next()) newId = rs.getInt(1);
             }
         }
-        return p;
+
+        // Devolvemos un Proceso coherente (fecha en AR y id asignado si lo hubo)
+        return new Proceso(
+                newId != null ? newId : p.getId(),
+                p.getNroProceso(),
+                p.getEstado(),
+                localFecha,                 // fecha local (AR)
+                p.getProductoId(),
+                p.getPesoKg(),
+                p.getPrecioUnitario(),
+                p.getImporteTotal()
+        );
     }
 
     // READ por nro_proceso
@@ -87,11 +105,12 @@ public class ProcesoDAO {
         }
     }
 
+    // Mapeo: DB (UTC) -> modelo (AR)
     private Proceso map(ResultSet rs) throws Exception {
-        java.sql.Timestamp ts = rs.getTimestamp("fecha", UTC_CAL);
-        java.time.LocalDateTime fecha = ts.toInstant()
-                .atZone(APP_ZONE)
-                .toLocalDateTime();
+        Timestamp ts = rs.getTimestamp("fecha");           // leemos UTC
+        LocalDateTime fecha = ts.toInstant()               // a Instant (UTC)
+                .atZone(APP_ZONE)                          // a AR
+                .toLocalDateTime();                        // LDT para el modelo
 
         return new Proceso(
                 rs.getInt("id"),
@@ -104,10 +123,6 @@ public class ProcesoDAO {
                 rs.getBigDecimal("importe_total")
         );
     }
-
-
-
-
 
     public TicketDTO findTicketDTO(String nro) throws Exception {
         String sql = """
@@ -130,11 +145,18 @@ public class ProcesoDAO {
             ps.setString(1, nro);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return null;
+
+                // UTC -> AR y devolvemos ISO con offset (ej: 2025-09-11T13:45:00-03:00)
+                Timestamp ts = rs.getTimestamp("fecha");
+                String fechaIsoLocal = ts.toInstant()
+                        .atZone(APP_ZONE)
+                        .format(ISO_OFFSET);
+
                 return new TicketDTO(
                         rs.getInt("id"),
                         rs.getString("nro_proceso"),
                         rs.getString("estado"),
-                        rs.getString("fecha"),
+                        fechaIsoLocal, // ISO con offset -03:00
                         rs.getInt("producto_id"),
                         rs.getBigDecimal("peso_kg"),
                         rs.getBigDecimal("precio_unitario"),
