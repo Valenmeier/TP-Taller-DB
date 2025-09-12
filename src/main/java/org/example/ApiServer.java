@@ -19,11 +19,12 @@ public class ApiServer {
         health.getFilters().add(cors);
 
         // Endpoints
-        HttpContext usuarios = server.createContext("/usuarios", new UserHandler());
-        usuarios.getFilters().add(cors);
 
         HttpContext login = server.createContext("/usuarios/login", new LoginHandler());
         login.getFilters().add(cors);
+
+        HttpContext usuarios = server.createContext("/usuarios", new UserHandler());
+        usuarios.getFilters().add(cors);
 
         HttpContext productos = server.createContext("/productos", new ProductHandler());
         productos.getFilters().add(cors);

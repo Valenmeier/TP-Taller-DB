@@ -5,7 +5,8 @@ import org.example.model.Usuario;
 import org.example.security.Passwords;
 
 import java.sql.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class UsuarioDAO {
 
@@ -114,6 +115,7 @@ public class UsuarioDAO {
                 rs.getString("rol")
         );
     }
+
     private Usuario mapSafe(ResultSet rs) throws Exception {
         return new Usuario(
                 rs.getInt("id"),

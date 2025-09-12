@@ -12,7 +12,7 @@ import java.util.List;
 
 public class ProcesoDAO {
 
-    // Zona “humana” de la app (AR)
+    // Zona de la app (AR)
     private static final ZoneId APP_ZONE = ZoneId.of("America/Argentina/Buenos_Aires");
     private static final DateTimeFormatter ISO_OFFSET = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
@@ -23,9 +23,7 @@ public class ProcesoDAO {
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """;
 
-        // Si viene null, tomamos ahora en zona AR
         LocalDateTime localFecha = (p.getFecha() != null) ? p.getFecha() : LocalDateTime.now(APP_ZONE);
-        // Guardamos en DB como UTC
         Instant utcInstant = localFecha.atZone(APP_ZONE).toInstant();
 
         Integer newId = null;
@@ -34,7 +32,7 @@ public class ProcesoDAO {
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, p.getNroProceso());
             ps.setString(2, p.getEstado());
-            ps.setTimestamp(3, Timestamp.from(utcInstant)); // UTC en DB
+            ps.setTimestamp(3, Timestamp.from(utcInstant));
             ps.setInt(4, p.getProductoId());
             ps.setBigDecimal(5, p.getPesoKg());
             ps.setBigDecimal(6, p.getPrecioUnitario());
@@ -46,12 +44,12 @@ public class ProcesoDAO {
             }
         }
 
-        // Devolvemos un Proceso coherente (fecha en AR y id asignado si lo hubo)
+
         return new Proceso(
                 newId != null ? newId : p.getId(),
                 p.getNroProceso(),
                 p.getEstado(),
-                localFecha,                 // fecha local (AR)
+                localFecha,
                 p.getProductoId(),
                 p.getPesoKg(),
                 p.getPrecioUnitario(),
@@ -59,7 +57,7 @@ public class ProcesoDAO {
         );
     }
 
-    // READ por nro_proceso
+    // READ
     public Proceso findByNro(String nro) throws Exception {
         String sql = "SELECT * FROM procesos WHERE nro_proceso=?";
         try (Connection c = Db.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
@@ -70,7 +68,7 @@ public class ProcesoDAO {
         }
     }
 
-    // READ todos
+    // READ
     public List<Proceso> findAll(String estado) throws Exception {
         String base = "SELECT * FROM procesos";
         boolean filtrar = estado != null && !estado.isBlank();
@@ -86,7 +84,7 @@ public class ProcesoDAO {
         }
     }
 
-    // UPDATE estado
+    // UPDATE
     public boolean actualizarEstado(String nro, String nuevoEstado) throws Exception {
         String sql = "UPDATE procesos SET estado=? WHERE nro_proceso=?";
         try (Connection c = Db.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
@@ -105,12 +103,12 @@ public class ProcesoDAO {
         }
     }
 
-    // Mapeo: DB (UTC) -> modelo (AR)
+    // Mapeo:
     private Proceso map(ResultSet rs) throws Exception {
-        Timestamp ts = rs.getTimestamp("fecha");           // leemos UTC
-        LocalDateTime fecha = ts.toInstant()               // a Instant (UTC)
-                .atZone(APP_ZONE)                          // a AR
-                .toLocalDateTime();                        // LDT para el modelo
+        Timestamp ts = rs.getTimestamp("fecha");
+        LocalDateTime fecha = ts.toInstant()
+                .atZone(APP_ZONE)
+                .toLocalDateTime();
 
         return new Proceso(
                 rs.getInt("id"),

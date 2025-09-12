@@ -3,8 +3,8 @@ package org.example.model;
 public class Usuario {
     private Integer id;
     private String usuario;
-    private String contrasena; // ideal: hash
-    private String rol;        // ENCARGADO | CAJERO | ADMIN
+    private String contrasena;
+    private String rol;
 
     public Usuario(Integer id, String usuario, String contrasena, String rol) {
         this.id = id; this.usuario = usuario; this.contrasena = contrasena; this.rol = rol;
